@@ -37,9 +37,12 @@ These override any convenience shortcut, at any point in the build:
 4. **No autonomous merges or production writes.** The system's only write
    target is the Decision Provenance artifact on DataHub metadata. It never
    merges a PR, deploys a change, or writes to the underlying warehouse.
-5. **One change type for the MVP.** `net_revenue` → `recognized_revenue` in
-   a dbt/Snowflake-style transform. Do not generalize the schema-diff parser
-   to arbitrary change types until this one path is fully verified.
+5. **One change type for the MVP.** `order_total` → `recognized_revenue` in
+   the `order_entry_db.analytics.order_details` Snowflake dataset (verified
+   real field in showcase-ecommerce, linked to the "Order Total" and
+   "Revenue by Customer Class" glossary terms — see docs/setup.md for the
+   Milestone 1 discovery). Do not generalize the schema-diff parser to
+   arbitrary change types until this one path is fully verified.
 6. **Scope is closed unless this file is edited first.** Do not add
    multi-agent handoff, policy-as-code gates, ML promotion mode, or the
    counterfactual simulator. If you believe one is necessary, stop and flag
@@ -65,7 +68,7 @@ Build:
   ready with no manual setup.
 - DataHub Quickstart running inside the codespace (`datahub docker
   quickstart`) with `showcase-ecommerce` loaded.
-- A minimal MCP client call that retrieves the `net_revenue`-bearing dataset
+- A minimal MCP client call that retrieves the `order_total`-bearing dataset
   and its field-level lineage.
 - `ChangeRequest` and `DecisionReceipt` JSON schemas (see Data Contracts
   below) as typed models (Pydantic or equivalent).
@@ -179,7 +182,7 @@ Definition of Done:
   "change_id": "string",
   "change_type": "field_rename",
   "source_asset": "urn:li:dataset:(...)",
-  "old_field": "net_revenue",
+  "old_field": "order_total",
   "new_field": "recognized_revenue",
   "old_type": "decimal",
   "new_type": "decimal",
@@ -221,6 +224,18 @@ invalidation_inputs: [<list of graph dependencies that, if changed, void this>]
 | No downstream consumers | Reduce risk |
 | Existing quality assertion is failing | Block |
 | Required approvals and all deterministic checks pass | Approve with migration plan |
+
+**Decided simplification (do not re-litigate this mid-build):** the
+showcase-ecommerce sample data has no "executive dashboard" label or tag on
+any BI asset. For this MVP, treat **"has any downstream BI/dashboard
+consumer at all"** as satisfying the "executive dashboard lineage path"
+risk-increasing rule — do not invent or assign an "executive" label to a
+sample asset that doesn't carry one in DataHub. The inverse rule ("no
+downstream consumers → reduce risk") already gives you the signal in the
+other direction, so this simplification doesn't lose test coverage. If this
+ever needs to be more precise (e.g. distinguishing an executive dashboard
+from an ordinary one), that requires a real signal in DataHub — a tag,
+title convention, or owner role — not a hardcoded guess.
 
 ## Verification discipline
 

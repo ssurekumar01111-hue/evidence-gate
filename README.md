@@ -19,7 +19,7 @@ Six months after a migration, most teams can answer "who merged this?" No team c
 
 ## Demo scenario
 
-An engineer proposes renaming the business-critical `net_revenue` field to `recognized_revenue` in a dbt/Snowflake-style transformation.
+An engineer proposes renaming the business-critical `order_total` field to `recognized_revenue` in the `order_entry_db.analytics.order_details` Snowflake dataset — a real dbt/Snowflake-style transformation in the showcase-ecommerce sample data, linked to the "Order Total" and "Revenue by Customer Class" glossary terms and consumed downstream by PowerBI, Looker, Tableau, and dbt assets.
 
 1. Evidence Gate discovers real graph context: downstream dashboards, owners, lineage, the `Revenue` glossary definition, current quality state.
 2. It runs a read-only validation query comparing old vs. proposed revenue aggregates against fixture data.
