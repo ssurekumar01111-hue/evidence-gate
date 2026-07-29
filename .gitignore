@@ -28,3 +28,4 @@ htmlcov/
 # OS / Editor files
 .DS_Store
 *.swp
+scratch/
