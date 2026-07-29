@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Environment variables / secrets
+.env
+.env.local
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# DuckDB / local temporary DBs
+*.duckdb
+*.db
+
+# DataHub CLI state
+.datahub/
+
+# OS / Editor files
+.DS_Store
+*.swp

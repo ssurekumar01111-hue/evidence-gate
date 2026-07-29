@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+pydantic
+duckdb
+python-dotenv
+pytest
+google-genai
+acryl-datahub
