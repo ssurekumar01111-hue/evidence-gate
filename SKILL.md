@@ -117,7 +117,7 @@ Build:
 
 Definition of Done:
 - [ ] Running the fixture produces a `blocked` result with a stated numeric
-      delta (e.g., "changes weekly revenue by 4.3%") — the number must come
+      delta (e.g., "changes revenue by 13.16%") — the number must come
       from the actual query, not be hardcoded in a template string.
 - [ ] The generated patch file is syntactically valid dbt/SQL and is saved
       into `examples/`.

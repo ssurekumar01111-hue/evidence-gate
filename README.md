@@ -1,33 +1,37 @@
-# DataHub Organizational Reasoning — Evidence Gate
+# Evidence Gate — DataHub Organizational Reasoning
 
-> We do not claim to invent audit logs, approvals, or decision receipts. We make organizational reasoning operational for data teams: graph-linked Decision Provenance that can be replayed, reused as precedent, and invalidated when the context graph changes.
+> This isn't a new audit log or a new approvals system. DataHub already knows what's connected. What it doesn't do yet is remember *why* a decision was made, or notice when that reasoning stops being true. That's what this project adds.
 
-**Track:** Agents That Do Real Work (secondary fit: Metadata-Aware Code Generation & Development)
+**Track:** Agents That Do Real Work (also fits Metadata-Aware Code Generation & Development)
 
-## What this is
+## The problem I'm actually trying to solve
 
-Before a risky schema change, model promotion, quality override, or metric update ships, **Evidence Gate** builds a replayable evidence packet from DataHub, runs deterministic validation, recommends approve / block / needs-review, and writes a **Decision Provenance** artifact back onto the affected DataHub assets — so a later engineer or agent can ask "why was this approved?" and get the real answer instead of a guess.
+Six months after a migration, anyone can tell you who merged the PR. Almost nobody can tell you what evidence justified it, or whether that reasoning still holds up today. I've seen this play out as a developer myself — a schema gets renamed, three dashboards quietly go stale, and the only trace of "why we thought this was safe" is a Slack message someone can't find anymore.
 
-- **It reads** DataHub's context graph: lineage, ownership, glossary terms, policies, quality state — via the MCP Server and Agent Context Kit.
-- **It decides** with deterministic rules (never an unconstrained LLM approval).
-- **It writes back**: the reasoning becomes part of the graph, not a row in a separate audit log.
-- **It knows when to stop trusting itself**: if the graph state that justified a decision later changes, the provenance is marked stale and revalidation is required.
+DataHub already has the graph — lineage, ownership, glossary terms, quality state. Evidence Gate uses that graph to actually check a proposed change before it ships, and then writes the reasoning back onto the asset itself, so the *why* lives in the same place as the *what's connected*, not in a separate system nobody checks.
 
-## Why it matters
+## What it does
 
-Six months after a migration, most teams can answer "who merged this?" No team can answer "what evidence, definition, and approval justified it, and does that reasoning still hold today?" Evidence Gate makes DataHub the system of record for *why*, not just *what's connected*.
+Before a risky schema change, metric redefinition, or quality override ships, Evidence Gate:
+
+- **Reads** DataHub's real context graph — lineage, ownership, glossary terms, quality state — through the MCP Server and Agent Context Kit.
+- **Decides** with deterministic rules. No unconstrained LLM call gets to approve or block anything — that's on purpose, and I think it's the right call for anything that looks like a governance gate.
+- **Writes the decision back** onto the affected DataHub asset, so it's queryable the same way anything else on that asset is.
+- **Knows when to stop trusting its own past decision** — if something the decision relied on changes later (a glossary link removed, a new failing assertion), it flags the old provenance as stale instead of letting it sit there looking authoritative forever.
 
 ## Demo scenario
 
-An engineer proposes renaming the business-critical `order_total` field to `recognized_revenue` in the `order_entry_db.analytics.order_details` Snowflake dataset — a real dbt/Snowflake-style transformation in the showcase-ecommerce sample data, linked to the "Order Total" and "Revenue by Customer Class" glossary terms and consumed downstream by PowerBI, Looker, Tableau, and dbt assets.
+An engineer proposes renaming `order_total` to `recognized_revenue` in the `order_entry_db.analytics.order_details` Snowflake dataset. This is a real dataset in DataHub's showcase-ecommerce sample data — it's linked to the "Order Total" and "Revenue by Customer Class" glossary terms, and it's consumed downstream by PowerBI, Looker, Tableau, and dbt assets.
 
-1. Evidence Gate discovers real graph context: downstream dashboards, owners, lineage, the `Revenue` glossary definition, current quality state.
-2. It runs a read-only validation query comparing old vs. proposed revenue aggregates against fixture data.
-3. It **blocks** the change (validation shows a 4.3% metric shift), names the required approver (Finance Analytics owner), and generates a compatibility patch + test.
-4. It writes a Decision Provenance artifact to the affected DataHub asset: rationale, graph snapshot, evidence checked, validation result, risk score, revalidation expiry.
-5. A second, independent agent interaction asks "why was this migration blocked?" and retrieves the stored reasoning from DataHub — it does not improvise an answer.
-6. A referenced policy/lineage/schema condition changes → the provenance is marked `stale`, revalidation is required.
-7. A similar future rename retrieves this provenance as precedent and explicitly shows what still applies and what changed.
+I picked this instead of a synthetic example on purpose: `order_total` (gross transaction value) and "recognized revenue" (an accounting concept that typically excludes tax and unfulfilled orders) aren't actually the same number, and the validation step proves it rather than asserting it.
+
+1. Evidence Gate pulls real context for the asset — downstream dashboards, owners, lineage, the glossary definitions, current quality state.
+2. It runs a read-only validation query comparing the old and proposed aggregates against fixture order data.
+3. It **blocks** the change — the validation shows a 13.16% shift in the aggregate, well past the tolerance — names who needs to sign off, and generates a compatibility patch plus a migration test.
+4. It writes a Decision Provenance record onto the DataHub asset: rationale, what was checked, the validation result, risk score, and when it should be revisited.
+5. A second, completely separate process asks "why was this blocked?" and gets the answer by reading what's actually stored on DataHub — it doesn't reconstruct or guess at an answer.
+6. I simulate one of the underlying conditions changing (removing the glossary link), and the stored decision flips to stale on DataHub itself.
+7. A second, similar change request comes in, finds this decision as precedent, and says plainly what still applies and what's different about this new case.
 
 ## Architecture
 
@@ -46,51 +50,51 @@ flowchart LR
   K --> L["Graph-change watcher\nInvalidate or revalidate"]
 ```
 
-## What's genuinely new here
+## What I think is actually new here, and what isn't
 
-DataHub already tells us what is connected. This does not reinvent lineage, audit logs, or approval gates. It links a decision to the exact assets, evidence, and validation that justified it; lets that reasoning be replayed and reused as precedent; and detects when the graph state behind a past decision has changed. Nothing here is a static JSON graph or a mocked lineage stub — every graph read and write in the demo path hits a real, running DataHub instance.
+I'm not claiming to have invented lineage, audit logs, or approval workflows — DataHub and plenty of other tools already do those well. What I haven't seen elsewhere: tying a specific decision to the exact evidence that justified it, letting that reasoning get reused as precedent for a similar future change, and detecting when the graph state behind an old decision has drifted. Everything in the demo path runs against a real, live DataHub instance — no static JSON standing in for the graph, no mocked lineage.
 
 ## Repository layout
 
-```
 .
 ├── README.md
-├── LICENSE                  # Apache 2.0
-├── SKILL.md                 # Build/execution guide for the coding agent
+├── LICENSE # Apache 2.0
+├── SKILL.md # Build/execution guide for the coding agent
 ├── .devcontainer/
-│   └── devcontainer.json    # Codespaces config: docker-in-docker, Python
+│ └── devcontainer.json # Codespaces config: docker-in-docker, Python
 ├── src/
-│   ├── api/                 # FastAPI orchestrator (Evidence Gate entrypoint)
-│   ├── discovery/            # DataHub MCP / ACK client calls
-│   ├── evidence/              # Evidence bundle construction
-│   ├── validation/            # Read-only revenue comparison query (DuckDB/fixture)
-│   ├── decision/              # Deterministic risk rules + LLM explanation
-│   ├── remediation/           # dbt-compatible patch + test generation
-│   ├── writeback/              # Decision Provenance write-back to DataHub
-│   ├── invalidation/          # Graph-change watcher
-│   └── precedent/             # Precedent retrieval + comparison
-├── skills/                    # Published DataHub Skills (OSS contribution)
-│   ├── assess_change_risk/
-│   ├── create_decision_provenance/
-│   ├── find_similar_precedents/
-│   └── invalidate_stale_provenance/
-├── examples/                  # Sample schema diff, evidence bundle, blocked
-│   │                           decision, generated patch, provenance payload
-├── tests/                     # Unit tests: risk scoring, validation, write-back,
-│   │                           invalidation, precedent comparison
-├── fixtures/                   # showcase-ecommerce datapack + revenue fixture
+│ ├── api/ # FastAPI orchestrator (Evidence Gate entrypoint)
+│ ├── discovery/ # DataHub MCP / ACK client calls
+│ ├── evidence/ # Evidence bundle construction
+│ ├── validation/ # Read-only revenue comparison query (DuckDB/fixture)
+│ ├── decision/ # Deterministic risk rules + LLM explanation
+│ ├── remediation/ # dbt-compatible patch + test generation
+│ ├── writeback/ # Decision Provenance write-back to DataHub
+│ ├── invalidation/ # Graph-change watcher
+│ └── precedent/ # Precedent retrieval + comparison
+├── skills/ # Standalone CLI wrappers around the same logic
+│ ├── assess_change_risk/
+│ ├── create_decision_provenance/
+│ ├── find_similar_precedents/
+│ └── invalidate_stale_provenance/
+├── oss-contribution-draft/ # Generalized skill prepared for datahub-skills
+│ └── datahub-decision-provenance/
+├── examples/ # Sample schema diff, evidence bundle, blocked
+│ │ decision, generated patch, provenance payload
+├── tests/ # Unit tests: risk scoring, validation, write-back,
+│ │ invalidation, precedent comparison
+├── fixtures/ # showcase-ecommerce datapack + revenue fixture
 └── docs/
-    ├── setup.md
-    └── troubleshooting.md
-```
+├── setup.md
+├── troubleshooting.md
+├── test-report.md
+├── demo-script.md
+└── oss-contribution.md
 
-## Quickstart
 
-This project is developed inside **GitHub Codespaces**, not on a local
-machine. DataHub's Quickstart needs Docker + 8GB RAM; Codespaces provides
-both (a 2-core/8GB/32GB machine on the free tier) with Docker already
-available via the `docker-in-docker` devcontainer feature — nothing to
-install locally beyond a browser or VS Code.
+## Running it yourself
+
+I built this inside a **GitHub Codespace**, not on my own machine — my laptop doesn't have the RAM to run DataHub's Docker stack comfortably, and Codespaces' free tier (2 cores, 8GB RAM, 32GB storage) covers it without needing to install Docker locally at all. The devcontainer config in this repo brings up Docker-in-Docker automatically.
 
 ```bash
 # 0. Open this repo in a Codespace (GitHub UI: Code -> Codespaces -> Create
@@ -119,29 +123,24 @@ python scripts/submit_change.py --fixture fixtures/net_revenue_rename.json
 # "Ports" tab, or use the PORTS panel link. Find the affected asset there.
 ```
 
-Full environment variables, teardown steps, Codespaces port-forwarding
-notes, and a DataHub/MCP connectivity troubleshooting section live in
-`docs/setup.md` and `docs/troubleshooting.md`.
+Full environment variables, teardown steps, port-forwarding notes, and troubleshooting live in `docs/setup.md` and `docs/troubleshooting.md`.
 
-**Cost/time note:** the free Codespaces tier gives 60 hours/month on a
-2-core machine. Stop the codespace (don't just close the tab) when you're
-not actively building — a stopped codespace only bills small storage, not
-compute hours.
+If you're on the free Codespaces tier: stop the codespace (not just close the tab) when you're done for the day — a stopped codespace only costs a small amount of storage, not compute hours.
 
-## What this does NOT do
+## What this deliberately doesn't do
 
-- It does **not** auto-merge or auto-deploy any change. Every `approved` result still requires the listed human approvers.
-- All approve/block decisions are deterministic and rule-backed. The LLM only explains evidence and drafts remediation — it never unilaterally approves anything.
-- Validation is read-only and allow-listed against fixture/sample data only.
-- This MVP covers exactly one change type (revenue field rename) end-to-end rather than partial coverage of many.
+- It doesn't auto-merge or auto-deploy anything. An `approved` result still means the listed people need to actually sign off.
+- The model never makes the approve/block call by itself — that stays rule-based. The model explains evidence and drafts remediation, nothing more.
+- Validation only runs against fixture/sample data, read-only, and only the one pre-registered comparison query — no arbitrary query generation.
+- This covers one change type end-to-end (a revenue field rename) rather than half-covering many. I'd rather have one path that's actually solid than five that are theoretical.
 
 ## Examples
 
-See `examples/` for a full walkthrough without needing to run the project: the input schema diff, the assembled evidence bundle, the blocked decision output, the generated dbt compatibility patch, and the written-back Decision Provenance payload.
+`examples/` has a full walkthrough without needing to run anything: the input schema diff, the evidence bundle, the blocked decision output, the generated dbt patch, and the actual provenance payload written back to DataHub.
 
 ## Open-source contribution
 
-This project publishes four reusable DataHub Skills (`skills/`) and includes an upstream contribution to DataHub — see `docs/oss-contribution.md` for the linked PR/issue.
+I pulled the write-back/precedent/staleness logic out into a generalized skill for `datahub-project/datahub-skills` — see `docs/oss-contribution.md` for status and the linked PR once it's open.
 
 ## License
 
