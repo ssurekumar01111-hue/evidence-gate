@@ -275,6 +275,33 @@ def test_end_to_end_milestone2_decision_path():
     assert "revenue_glossary_term_linked" in risk.signals_triggered
 
     # Check real approver human names
-    assert "David Kim" in risk.required_approvers
-    assert "Julia Novak" in risk.required_approvers
-    assert "Karen Okonkwo" in risk.required_approvers
+    assert risk.required_approvers == [
+        "Andrea Garcia",
+        "David Kim",
+        "Fiona Green",
+        "Ian Chen",
+        "Julia Novak",
+        "Karen Okonkwo",
+    ]
+
+
+def test_deterministic_approver_resolution_three_consecutive_runs():
+    """
+    Problem 2 Regression Test: Runs the approver resolution pipeline against the real DataHub instance
+    3 times in a row and asserts byte-identical output (exactly the same 6 approvers in the same order) each time.
+    """
+    req = parse_change_request("fixtures/net_revenue_rename.json")
+    expected_approvers = [
+        "Andrea Garcia",
+        "David Kim",
+        "Fiona Green",
+        "Ian Chen",
+        "Julia Novak",
+        "Karen Okonkwo",
+    ]
+
+    for i in range(3):
+        bundle = build_evidence_bundle(req)
+        risk = evaluate_risk(req, bundle)
+        assert risk.required_approvers == expected_approvers, f"Run {i+1} approvers differed: {risk.required_approvers}"
+

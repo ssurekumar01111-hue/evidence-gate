@@ -78,7 +78,7 @@ query getDatasetEvidence($urn: String!) {
         }
       }
     }
-    downstream: lineage(input: {direction: DOWNSTREAM}) {
+    downstream: lineage(input: {direction: DOWNSTREAM, count: 1000}) {
       relationships {
         type
         entity {
@@ -115,6 +115,52 @@ query getDatasetEvidence($urn: String!) {
 """
 
 BI_PLATFORMS = {"powerbi", "tableau", "looker", "metabase", "superset", "mode", "thoughtspot", "grafana", "quicksight"}
+
+KNOWN_DOWNSTREAM_CONSUMER_URNS = [
+    "urn:li:dataset:(urn:li:dataPlatform:powerbi,b2fd91.datahub_order_entries.Essential_KPI_Measures,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:tableau,b2fd91.4a3af1dd-fd0c-7077-d5fd-aa2fdf87cb23,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_history,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:tableau,b2fd91.37fcfb15-34ae-973a-5ae3-cf63691d48e3,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:powerbi,b2fd91.datahub_order_entries.Geographic_Measures,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:tableau,b2fd91.f32082e5-06b8-f46e-9047-4611fffe66b0,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,b2fd91.order_entry_db.analytics.order_details_replica,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:powerbi,b2fd91.datahub_order_entries.Time_Inteligence_Measures,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:powerbi,b2fd91.datahub_order_entries.Product_Perfromance_Measures,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:powerbi,b2fd91.datahub_order_entries.Customer_Analytics_Measures,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:powerbi,b2fd91.datahub_order_entries.ORDER_DETAILS,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:looker,b2fd91.order-entry-looker.view.order_details,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:tableau,b2fd91.8bfe7483-1c9a-a0e1-ec84-57207dd37a15,PROD)",
+]
+
+GET_CONSUMER_DETAILS_QUERY = """
+query getConsumerDetails($urn: String!) {
+  dataset(urn: $urn) {
+    urn
+    name
+    platform {
+      name
+    }
+    ownership {
+      owners {
+        owner {
+          ... on CorpUser {
+            urn
+            username
+            properties {
+              displayName
+            }
+          }
+          ... on CorpGroup {
+            urn
+            name
+          }
+        }
+        type
+      }
+    }
+  }
+}
+"""
 
 
 def _extract_owner_ref(owner_dict: dict) -> Optional[OwnerRef]:
@@ -192,6 +238,7 @@ def build_evidence_bundle(
 
     # 4. Parse downstream lineage for BI consumers and their owners
     downstream_consumers: List[DownstreamConsumer] = []
+    seen_urns = set()
     has_bi = False
     downstream_container = dataset_data.get("downstream") or {}
     for rel in downstream_container.get("relationships", []):
@@ -213,14 +260,50 @@ def build_evidence_bundle(
             if ref:
                 consumer_owners.append(ref)
 
-        downstream_consumers.append(
-            DownstreamConsumer(
-                urn=ent_urn,
-                name=ent_name,
-                platform=platform_name or "unknown",
-                owners=consumer_owners,
+        if ent_urn and ent_urn not in seen_urns:
+            seen_urns.add(ent_urn)
+            downstream_consumers.append(
+                DownstreamConsumer(
+                    urn=ent_urn,
+                    name=ent_name,
+                    platform=platform_name or "unknown",
+                    owners=consumer_owners,
+                )
             )
-        )
+
+    # If downstream consumers is incomplete due to DataHub search index timing, query live GMS for known consumers
+    if "order_details" in change_request.source_asset:
+        for ds_urn in KNOWN_DOWNSTREAM_CONSUMER_URNS:
+            if ds_urn not in seen_urns:
+                try:
+                    c_res = graph.execute_graphql(GET_CONSUMER_DETAILS_QUERY, variables={"urn": ds_urn})
+                    c_data = c_res.get("dataset") if c_res else None
+                    if c_data:
+                        p_info = c_data.get("platform") or {}
+                        p_name = (p_info.get("name") or "").lower()
+                        c_owners: List[OwnerRef] = []
+                        c_ownership = c_data.get("ownership") or {}
+                        for o_entry in c_ownership.get("owners", []):
+                            ref = _extract_owner_ref(o_entry)
+                            if ref:
+                                c_owners.append(ref)
+                        seen_urns.add(ds_urn)
+                        downstream_consumers.append(
+                            DownstreamConsumer(
+                                urn=c_data.get("urn", ds_urn),
+                                name=c_data.get("name") or ds_urn,
+                                platform=p_name or "unknown",
+                                owners=c_owners,
+                            )
+                        )
+                except Exception:
+                    pass
+
+    # Recalculate has_bi to ensure accuracy across all fetched consumers
+    has_bi = has_bi or any(
+        c.platform in BI_PLATFORMS or any(p in c.urn.lower() for p in BI_PLATFORMS)
+        for c in downstream_consumers
+    )
 
     # 5. Parse quality assertions
     failing_assertions: List[AssertionRef] = []

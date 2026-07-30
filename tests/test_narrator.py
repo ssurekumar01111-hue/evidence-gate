@@ -171,7 +171,7 @@ def test_live_gemini_api_no_hallucinated_signals(sample_inputs):
 
     rationale_lower = rationale.lower()
 
-    # Assert live Gemini output does NOT hallucinate type incompatibility or quality assertion failures, nor forbidden executive phrasing
+    # Assert live Gemini output does NOT hallucinate type incompatibility or quality assertion failures, nor forbidden executive phrasing or contradicting downstream consumer claims
     assert "incompatible type" not in rationale_lower
     assert "type mismatch" not in rationale_lower
     assert "incompatible field" not in rationale_lower
@@ -179,6 +179,72 @@ def test_live_gemini_api_no_hallucinated_signals(sample_inputs):
     assert "assertion failure" not in rationale_lower
     assert "executive" not in rationale_lower
     assert "exec dashboard" not in rationale_lower
+    assert "no downstream" not in rationale_lower
+    assert "despite having no" not in rationale_lower
+
+
+def test_live_gemini_api_downstream_consumer_no_hallucination_regression(sample_inputs):
+    """
+    Regression test: Passes facts where downstream_bi_consumer_present=True,
+    calls real Gemini API (unmocked), and asserts output does NOT contain
+    'no downstream' or 'despite having no' phrasing.
+    """
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        pytest.skip("GEMINI_API_KEY not present in environment - skipping live API test")
+
+    req, evidence, risk, val = sample_inputs
+
+    assert "downstream_bi_consumer_present" in risk.signals_triggered
+
+    rationale = generate_business_rationale(
+        change_request=req,
+        risk_assessment=risk,
+        validation_report=val,
+        final_status="blocked",
+        final_risk_score=100,
+    )
+
+    rationale_lower = rationale.lower()
+
+    assert "no downstream" not in rationale_lower
+    assert "despite having no" not in rationale_lower
+
+
+def test_downstream_consumer_hallucination_triggers_fallback(sample_inputs, capsys):
+    """
+    Verifies that when downstream_bi_consumer_present is in signals_triggered,
+    hallucinated text claiming 'no downstream consumers' is caught and triggers fallback.
+    """
+    req, evidence, risk, val = sample_inputs
+    assert "downstream_bi_consumer_present" in risk.signals_triggered
+
+    hallucinated_text = (
+        "The change is BLOCKED (100/100) despite having no downstream consumers affected. "
+        "Validation failed with a 13.16% shift."
+    )
+
+    with patch.dict(os.environ, {"GEMINI_API_KEY": "fake-valid-key"}):
+        with patch("google.genai.Client") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_response = MagicMock()
+            mock_response.text = hallucinated_text
+            mock_client.models.generate_content.return_value = mock_response
+            mock_client_cls.return_value = mock_client
+
+            rationale = generate_business_rationale(
+                change_request=req,
+                risk_assessment=risk,
+                validation_report=val,
+                final_status="blocked",
+                final_risk_score=100,
+            )
+
+            captured = capsys.readouterr()
+            assert "[LLM_HALLUCINATION_DETECTED]" in captured.err or "[LLM_HALLUCINATION_DETECTED]" in captured.out
+            assert rationale != hallucinated_text
+            assert "despite having no downstream" not in rationale.lower()
+            assert "Change BLOCKED" in rationale
 
 
 def test_forbidden_phrase_executive_triggers_fallback(sample_inputs, capsys):
@@ -214,4 +280,5 @@ def test_forbidden_phrase_executive_triggers_fallback(sample_inputs, capsys):
             assert rationale != executive_text
             assert "executive" not in rationale.lower()
             assert "Change BLOCKED" in rationale
+
 

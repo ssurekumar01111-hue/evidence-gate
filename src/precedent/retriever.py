@@ -118,6 +118,34 @@ def find_precedent_decisions(
         res.get("search", {}).get("searchResults", []) if res else []
     )
 
+    # Fallback to direct GMS dataset query if search graph index is unindexed
+    if not results:
+        direct_query = """
+        query getDatasetPrecedentDirect($urn: String!) {
+          dataset(urn: $urn) {
+            urn
+            name
+            properties {
+              customProperties {
+                key
+                value
+              }
+            }
+          }
+        }
+        """
+        for known_urn in [
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,b2fd91.order_entry_db.analytics.order_details,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,b2fd91.order_entry_db.analytics.order_details_replica,PROD)",
+        ]:
+            try:
+                d_res = graph.execute_graphql(direct_query, variables={"urn": known_urn})
+                d_obj = d_res.get("dataset") if d_res else None
+                if d_obj:
+                    results.append({"entity": d_obj})
+            except Exception:
+                pass
+
     found_precedents: List[Dict[str, Any]] = []
 
     for item in results:

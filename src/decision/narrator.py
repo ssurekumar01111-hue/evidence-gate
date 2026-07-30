@@ -51,6 +51,20 @@ FORBIDDEN_PHRASES_BY_SIGNAL = {
 }
 
 
+NO_DOWNSTREAM_HALLUCINATION_PHRASES = [
+    "no downstream consumer",
+    "no downstream consumers",
+    "despite having no downstream",
+    "having no downstream",
+    "with no downstream",
+    "without downstream",
+    "no bi consumer",
+    "no bi consumers",
+    "no downstream dashboard",
+    "no downstream dashboards",
+]
+
+
 def _build_fallback_rationale(
     change_request: ChangeRequest,
     risk_assessment: RiskAssessment,
@@ -74,7 +88,7 @@ def _build_fallback_rationale(
 def _detect_hallucinated_signals(text: str, triggered_signals: List[str]) -> bool:
     """
     Returns True if generated text references signal categories that did NOT trigger
-    or contains forbidden phrases such as 'executive'.
+    or contains forbidden phrases such as 'executive' or contradicting downstream consumer facts.
     """
     text_lower = text.lower()
     for phrase in GLOBAL_FORBIDDEN_PHRASES:
@@ -86,6 +100,12 @@ def _detect_hallucinated_signals(text: str, triggered_signals: List[str]) -> boo
             for phrase in forbidden_phrases:
                 if phrase in text_lower:
                     return True
+
+    if "downstream_bi_consumer_present" in triggered_signals:
+        for phrase in NO_DOWNSTREAM_HALLUCINATION_PHRASES:
+            if phrase in text_lower:
+                return True
+
     return False
 
 
@@ -145,7 +165,7 @@ DETERMINISTIC EVALUATION FACTS (FIXED - DO NOT ALTER):
 INSTRUCTIONS:
 1. Explain the business rationale for this decision in 2-3 clear, professional sentences based STRICTLY on the deterministic facts above.
 2. Include the exact decision status ({final_status.upper()}), risk score ({final_risk_score}/100), and metric delta percentage ({validation_report.delta_pct:.2f}%).
-3. Only reference the signals listed above under 'Triggered Risk Signals'. Do not infer, assume, or mention any risk factor, signal, or reason not explicitly provided in the facts (such as type incompatibility or failing quality assertions), even if it seems plausible for a blocked change. Note that field types match ('{change_request.old_type}' to '{change_request.new_type}') and no quality assertions failed. Do not use the word 'executive' or label any dashboard as 'executive'.
+3. Only reference the signals listed above under 'Triggered Risk Signals'. Do not infer, assume, or mention any risk factor, signal, or reason not explicitly provided in the facts (such as type incompatibility or failing quality assertions), even if it seems plausible for a blocked change. Note that field types match ('{change_request.old_type}' to '{change_request.new_type}') and no quality assertions failed. If 'Field has real downstream BI/dashboard consumers' is listed in Triggered Risk Signals, do NOT claim or imply there are no downstream consumers affected. Do not use the word 'executive' or label any dashboard as 'executive'.
 4. Respond with ONLY the business rationale text.
 """
         response = client.models.generate_content(
