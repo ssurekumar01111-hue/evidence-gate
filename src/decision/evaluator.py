@@ -4,6 +4,7 @@ from src.api.schemas import ChangeRequest, DecisionReceipt, ValidationResult
 from src.evidence.schemas import EvidenceBundle
 from src.decision.schemas import RiskAssessment
 from src.validation.schemas import RevenueValidationReport
+from src.decision.narrator import generate_business_rationale
 
 
 def build_decision_receipt(
@@ -41,10 +42,6 @@ def build_decision_receipt(
     if validation_report.result == "failed":
         final_status = "blocked"
         final_risk_score = 100
-        business_rationale = (
-            f"Change BLOCKED: Field rename '{change_request.old_field}' -> '{change_request.new_field}' "
-            f"causes a metric discrepancy. {validation_report.reason}"
-        )
         recommended_action = (
             "Apply the generated dbt compatibility patch (examples/recognized_revenue_patch.sql) "
             "and execute migration test suite (examples/test_recognized_revenue_migration.py) "
@@ -53,20 +50,25 @@ def build_decision_receipt(
     elif risk_assessment.leaning == "blocked":
         final_status = "blocked"
         final_risk_score = 100
-        business_rationale = f"Change BLOCKED: {risk_assessment.rationale}"
         recommended_action = "Resolve deterministic risk violations prior to validation."
     elif risk_assessment.risk_score >= 50:
         final_status = "needs-review"
         final_risk_score = risk_assessment.risk_score
-        business_rationale = f"Change NEEDS REVIEW: {risk_assessment.rationale}"
         recommended_action = (
             f"Obtain approval from listed approvers: {', '.join(risk_assessment.required_approvers)}"
         )
     else:
         final_status = "approved"
         final_risk_score = risk_assessment.risk_score
-        business_rationale = f"Change APPROVED: {risk_assessment.rationale}"
         recommended_action = "Proceed with schema migration and update downstream models."
+
+    business_rationale = generate_business_rationale(
+        change_request=change_request,
+        risk_assessment=risk_assessment,
+        validation_report=validation_report,
+        final_status=final_status,
+        final_risk_score=final_risk_score,
+    )
 
     val_res = ValidationResult(
         result=validation_report.result,

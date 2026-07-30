@@ -87,7 +87,7 @@ def test_validation_failure_overrides_low_risk_score():
     # Assert that validation failure overrides low Milestone 2 risk score (20 -> 100)
     assert receipt.status == "blocked"
     assert receipt.risk_score == 100
-    assert "Change BLOCKED" in receipt.business_rationale
+    assert "BLOCKED" in receipt.business_rationale
 
 
 def test_validation_success_retains_milestone2_risk_score():

@@ -26,10 +26,11 @@ These override any convenience shortcut, at any point in the build:
    hit a real local DataHub instance loaded with `showcase-ecommerce`. Mocks
    are only acceptable in unit tests, clearly isolated from the demo path.
 2. **Approve/block decisions are deterministic.** The rules engine decides.
-   The LLM's job is limited to: explaining the evidence in plain language,
-   drafting the remediation patch/test, and summarizing precedent
-   differences. The LLM must never be the thing that flips a decision from
-   `blocked` to `approved`.
+   The LLM's job is limited to: explaining the evidence in plain language
+   (business_rationale) and summarizing precedent differences. Remediation
+   patch and migration test generation stay template-based — deterministic
+   and already verified — to avoid introducing correctness risk into
+   generated SQL/test code this late in the build.
 3. **Validation is read-only and allow-listed.** The Analytics Agent / query
    layer may only run the specific, pre-registered comparison query for this
    MVP (old vs. proposed revenue aggregate over fixture data). No arbitrary

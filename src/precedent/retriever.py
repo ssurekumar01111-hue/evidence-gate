@@ -1,7 +1,84 @@
 import os
-from typing import Dict, Any, List, Optional
+import sys
+import json
+from typing import Dict, Any, List, Optional, Tuple
+from dotenv import load_dotenv
+from google import genai
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 from src.api.schemas import ChangeRequest
+
+load_dotenv()
+
+
+def narrate_precedent_comparison(
+    applies_list: List[str],
+    differs_list: List[str],
+    candidate_id: str,
+    prior_id: str,
+) -> Tuple[List[str], List[str]]:
+    """
+    Uses Gemini LLM to naturally rephrase deterministic precedent comparison facts.
+    Falls back to deterministic template lists if GEMINI_API_KEY is missing or API call fails.
+    """
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        warning_msg = (
+            "[LLM_UNAVAILABLE] Falling back to template precedent comparison — "
+            "Gemini call failed: GEMINI_API_KEY environment variable is not set."
+        )
+        print(warning_msg, file=sys.stderr)
+        return applies_list, differs_list
+
+    try:
+        client = genai.Client(api_key=api_key)
+        prompt = f"""
+You are Evidence Gate, an automated data governance engine.
+Rephrase these deterministic precedent comparison facts between candidate Change Request '{candidate_id}' and prior decision '{prior_id}'.
+
+DETERMINISTIC FACTS (FIXED - DO NOT ALTER OR OMIT):
+What Still Applies:
+{json.dumps(applies_list, indent=2)}
+
+What Differs:
+{json.dumps(differs_list, indent=2)}
+
+INSTRUCTIONS:
+1. Rephrase the bullet points under 'What Still Applies' and 'What Differs' into professional, natural language sentences.
+2. Return a valid JSON object with EXACTLY two keys: "what_still_applies" (list of strings) and "what_differs" (list of strings).
+3. Do not add, remove, or change any underlying facts or decision outcomes.
+4. Do not use the word 'executive' or label any dashboard as 'executive'.
+"""
+        response = client.models.generate_content(
+            model="gemini-3.5-flash",
+            contents=prompt,
+        )
+        text = response.text.strip() if response and response.text else ""
+        if text.startswith("```json"):
+            text = text.split("```json", 1)[1].split("```", 1)[0].strip()
+        elif text.startswith("```"):
+            text = text.split("```", 1)[1].split("```", 1)[0].strip()
+
+        parsed = json.loads(text)
+        new_applies = parsed.get("what_still_applies", applies_list)
+        new_differs = parsed.get("what_differs", differs_list)
+        if isinstance(new_applies, list) and isinstance(new_differs, list):
+            for item in new_applies + new_differs:
+                item_lower = str(item).lower()
+                if "executive" in item_lower or "exec dashboard" in item_lower:
+                    warning_msg = (
+                        "[LLM_HALLUCINATION_DETECTED] Gemini precedent comparison output referenced forbidden phrase 'executive' — falling back to template."
+                    )
+                    print(warning_msg, file=sys.stderr)
+                    return applies_list, differs_list
+            return new_applies, new_differs
+        else:
+            raise ValueError("Invalid JSON structure returned by Gemini")
+    except Exception as e:
+        warning_msg = (
+            f"[LLM_UNAVAILABLE] Falling back to template precedent comparison — Gemini call failed: {e}"
+        )
+        print(warning_msg, file=sys.stderr)
+        return applies_list, differs_list
 
 
 def find_precedent_decisions(
@@ -88,6 +165,11 @@ def find_precedent_decisions(
                 differs_list.append(
                     f"Pull Request URL: '{change_request.pr_url}' vs prior '{prior_url}'."
                 )
+
+            # Use LLM narrator with fallback for precedent comparison phrasing
+            applies_list, differs_list = narrate_precedent_comparison(
+                applies_list, differs_list, change_request.change_id, prior_id
+            )
 
             found_precedents.append(
                 {
