@@ -2,8 +2,6 @@
 
 ### First workflow: Evidence Gate
 
-## In one sentence
-
 Evidence Gate turns one-time data governance decisions into graph-linked organizational memory that stays trustworthy by automatically invalidating itself when the underlying metadata changes.
 
 ```
