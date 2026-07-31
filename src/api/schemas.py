@@ -1,9 +1,9 @@
-from typing import List, Literal
+from typing import List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
 class ValidationResult(BaseModel):
-    result: Literal["passed", "failed"]
+    result: Literal["passed", "failed", "unavailable"]
     reason: str
 
 
@@ -16,6 +16,7 @@ class ChangeRequest(BaseModel):
     old_type: str
     new_type: str
     pr_url: str
+    semantic_mapping: Optional[Literal["exact", "compatible", "incompatible", "ambiguous"]] = None
 
 
 class DecisionReceipt(BaseModel):

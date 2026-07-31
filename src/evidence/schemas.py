@@ -30,12 +30,14 @@ class AssertionRef(BaseModel):
 class EvidenceBundle(BaseModel):
     asset_urn: str
     field_name: str
+    asset_name: Optional[str] = None
     field_glossary_terms: List[GlossaryTermRef] = Field(default_factory=list)
     dataset_glossary_terms: List[GlossaryTermRef] = Field(default_factory=list)
     asset_owners: List[OwnerRef] = Field(default_factory=list)
     downstream_consumers: List[DownstreamConsumer] = Field(default_factory=list)
     has_bi_consumer: bool = False
     failing_assertions: List[AssertionRef] = Field(default_factory=list)
+    unresolvable_lineage_urns: List[str] = Field(default_factory=list)
 
     @property
     def all_glossary_terms(self) -> List[GlossaryTermRef]:

@@ -27,16 +27,40 @@ def validate_revenue_compatibility(
     and returns a RevenueValidationReport indicating pass or fail based on tolerance.
     """
     path = Path(csv_path)
-    if not path.exists():
-        raise FileNotFoundError(f"Fixture CSV not found at {path}")
+    try:
+        if not path.exists():
+            return RevenueValidationReport(
+                result="unavailable",
+                reason=f"Validation source unavailable: Fixture CSV not found at {path}",
+                old_aggregate=0.0,
+                proposed_aggregate=0.0,
+                delta_pct=0.0,
+                tolerance_pct=tolerance_pct,
+            )
 
-    conn = duckdb.connect(database=":memory:")
-    # Load synthetic order book CSV into DuckDB memory table
-    conn.execute(f"CREATE TABLE orders AS SELECT * FROM read_csv_auto('{path}')")
+        conn = duckdb.connect(database=":memory:")
+        # Load synthetic order book CSV into DuckDB memory table
+        conn.execute(f"CREATE TABLE orders AS SELECT * FROM read_csv_auto('{path}')")
 
-    row = conn.execute(ALLOWLISTED_REVENUE_COMPATIBILITY_QUERY).fetchone()
-    if not row or row[0] is None:
-        raise ValueError("Failed to compute revenue aggregates from DuckDB fixture")
+        row = conn.execute(ALLOWLISTED_REVENUE_COMPATIBILITY_QUERY).fetchone()
+        if not row or row[0] is None:
+            return RevenueValidationReport(
+                result="unavailable",
+                reason="Validation source unavailable: Failed to compute revenue aggregates from DuckDB query",
+                old_aggregate=0.0,
+                proposed_aggregate=0.0,
+                delta_pct=0.0,
+                tolerance_pct=tolerance_pct,
+            )
+    except Exception as e:
+        return RevenueValidationReport(
+            result="unavailable",
+            reason=f"Validation source unavailable: {e}",
+            old_aggregate=0.0,
+            proposed_aggregate=0.0,
+            delta_pct=0.0,
+            tolerance_pct=tolerance_pct,
+        )
 
     old_aggregate = float(row[0])
     proposed_aggregate = float(row[1])

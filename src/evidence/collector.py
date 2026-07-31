@@ -238,14 +238,22 @@ def build_evidence_bundle(
 
     # 4. Parse downstream lineage for BI consumers and their owners
     downstream_consumers: List[DownstreamConsumer] = []
+    unresolvable_lineage_urns: List[str] = []
     seen_urns = set()
     has_bi = False
     downstream_container = dataset_data.get("downstream") or {}
     for rel in downstream_container.get("relationships", []):
-        entity = rel.get("entity") or {}
+        entity = rel.get("entity")
+        if not entity:
+            unresolvable_lineage_urns.append("urn:li:dataset:unknown_unresolvable_entity")
+            continue
+        ent_urn = entity.get("urn", "")
+        if not ent_urn or entity.get("type") == "UNRESOLVABLE" or "unresolvable" in ent_urn.lower():
+            unresolvable_lineage_urns.append(ent_urn or "urn:li:dataset:unresolvable_entity")
+            continue
+
         platform_info = entity.get("platform") or {}
         platform_name = (platform_info.get("name") or "").lower()
-        ent_urn = entity.get("urn", "")
         ent_name = entity.get("name") or ent_urn
 
         # Check if platform is a known BI platform or platform name is in URN
@@ -323,10 +331,12 @@ def build_evidence_bundle(
     return EvidenceBundle(
         asset_urn=change_request.source_asset,
         field_name=change_request.old_field,
+        asset_name=dataset_data.get("name") if dataset_data else None,
         field_glossary_terms=field_glossary_terms,
         dataset_glossary_terms=dataset_glossary_terms,
         asset_owners=asset_owners,
         downstream_consumers=downstream_consumers,
         has_bi_consumer=has_bi,
         failing_assertions=failing_assertions,
+        unresolvable_lineage_urns=unresolvable_lineage_urns,
     )

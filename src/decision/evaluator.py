@@ -51,6 +51,13 @@ def build_decision_receipt(
         final_status = "blocked"
         final_risk_score = 100
         recommended_action = "Resolve deterministic risk violations prior to validation."
+    elif validation_report.result == "unavailable":
+        final_status = "needs-review"
+        final_risk_score = max(50, risk_assessment.risk_score)
+        recommended_action = (
+            f"Validation source unavailable ({validation_report.reason}). "
+            f"Manual review required before approval."
+        )
     elif risk_assessment.risk_score >= 50:
         final_status = "needs-review"
         final_risk_score = risk_assessment.risk_score

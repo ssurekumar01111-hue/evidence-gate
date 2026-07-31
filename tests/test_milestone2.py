@@ -274,21 +274,30 @@ def test_end_to_end_milestone2_decision_path():
     assert "downstream_bi_consumer_present" in risk.signals_triggered
     assert "revenue_glossary_term_linked" in risk.signals_triggered
 
-    # Check real approver human names
-    assert risk.required_approvers == [
+    # Check real approver human names and unassigned entries for unowned consumers
+    expected = [
         "Andrea Garcia",
         "David Kim",
         "Fiona Green",
         "Ian Chen",
         "Julia Novak",
         "Karen Okonkwo",
+        "UNASSIGNED - Custom SQL Query has no owner in DataHub, escalate manually",
+        "UNASSIGNED - Customer Analytics Measures has no owner in DataHub, escalate manually",
+        "UNASSIGNED - Essential KPI Measures has no owner in DataHub, escalate manually",
+        "UNASSIGNED - Geographic Measures has no owner in DataHub, escalate manually",
+        "UNASSIGNED - ORDER_DETAILS_REPLICA has no owner in DataHub, escalate manually",
+        "UNASSIGNED - Product Perfromance Measures has no owner in DataHub, escalate manually",
+        "UNASSIGNED - Time Inteligence Measures has no owner in DataHub, escalate manually",
+        "UNASSIGNED - order_history has no owner in DataHub, escalate manually",
     ]
+    assert risk.required_approvers == expected
 
 
 def test_deterministic_approver_resolution_three_consecutive_runs():
     """
     Problem 2 Regression Test: Runs the approver resolution pipeline against the real DataHub instance
-    3 times in a row and asserts byte-identical output (exactly the same 6 approvers in the same order) each time.
+    3 times in a row and asserts byte-identical output (exactly the same 14 approver entries in the same order) each time.
     """
     req = parse_change_request("fixtures/net_revenue_rename.json")
     expected_approvers = [
@@ -298,6 +307,14 @@ def test_deterministic_approver_resolution_three_consecutive_runs():
         "Ian Chen",
         "Julia Novak",
         "Karen Okonkwo",
+        "UNASSIGNED - Custom SQL Query has no owner in DataHub, escalate manually",
+        "UNASSIGNED - Customer Analytics Measures has no owner in DataHub, escalate manually",
+        "UNASSIGNED - Essential KPI Measures has no owner in DataHub, escalate manually",
+        "UNASSIGNED - Geographic Measures has no owner in DataHub, escalate manually",
+        "UNASSIGNED - ORDER_DETAILS_REPLICA has no owner in DataHub, escalate manually",
+        "UNASSIGNED - Product Perfromance Measures has no owner in DataHub, escalate manually",
+        "UNASSIGNED - Time Inteligence Measures has no owner in DataHub, escalate manually",
+        "UNASSIGNED - order_history has no owner in DataHub, escalate manually",
     ]
 
     for i in range(3):

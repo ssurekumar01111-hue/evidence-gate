@@ -30,7 +30,10 @@ def evaluate_risk(change_request: ChangeRequest, evidence: EvidenceBundle) -> Ri
     score = 0
 
     # Rule 3: New field has incompatible type or semantic definition
-    if change_request.old_type.lower() != change_request.new_type.lower():
+    if change_request.semantic_mapping == "ambiguous":
+        signals.append("ambiguous_semantic_mapping")
+        score += 50
+    elif change_request.old_type.lower() != change_request.new_type.lower() or change_request.semantic_mapping == "incompatible":
         signals.append("incompatible_field_type")
         blocking_reasons.append(
             f"Field type changed from '{change_request.old_type}' to '{change_request.new_type}'"
@@ -57,29 +60,41 @@ def evaluate_risk(change_request: ChangeRequest, evidence: EvidenceBundle) -> Ri
         signals.append("revenue_glossary_term_linked")
         score += 40
 
-    # Rule 5: No downstream consumers (risk-REDUCING case)
-    if len(evidence.downstream_consumers) == 0:
+    # Rule 5: No downstream consumers (risk-REDUCING case) - ONLY if no consumers and NO broken lineage
+    if evidence.unresolvable_lineage_urns:
+        signals.append("unresolvable_lineage_edge")
+        score += 25
+    elif len(evidence.downstream_consumers) == 0:
         signals.append("no_downstream_consumers")
         score -= 20
 
     # Gather required approvers from asset owners and downstream consumer owners
     approver_names: Set[str] = set()
-    raw_names: Set[str] = set()
 
+    # Asset owners
+    asset_human_owners = set()
     for o in evidence.asset_owners:
-        if o.name:
-            raw_names.add(o.name)
-            if not o.name.startswith("b2fd91.") and not o.name.startswith("urn:li:"):
-                approver_names.add(o.name)
+        if o.name and not o.name.startswith("b2fd91.") and not o.name.startswith("urn:li:"):
+            asset_human_owners.add(o.name)
+    if asset_human_owners:
+        approver_names.update(asset_human_owners)
+    else:
+        asset_label = getattr(evidence, "asset_name", None) or change_request.source_asset
+        approver_names.add(f"UNASSIGNED - {asset_label} has no owner in DataHub, escalate manually")
 
+    # Downstream consumer owners
     for c in evidence.downstream_consumers:
+        consumer_human_owners = set()
         for o in c.owners:
-            if o.name:
-                raw_names.add(o.name)
-                if not o.name.startswith("b2fd91.") and not o.name.startswith("urn:li:"):
-                    approver_names.add(o.name)
+            if o.name and not o.name.startswith("b2fd91.") and not o.name.startswith("urn:li:"):
+                consumer_human_owners.add(o.name)
+        if consumer_human_owners:
+            approver_names.update(consumer_human_owners)
+        else:
+            consumer_label = c.name or c.urn
+            approver_names.add(f"UNASSIGNED - {consumer_label} has no owner in DataHub, escalate manually")
 
-    required_approvers = sorted(list(approver_names or raw_names))
+    required_approvers = sorted(list(approver_names))
 
     # Evaluate preliminary status leaning
     if blocking_reasons:
@@ -88,6 +103,9 @@ def evaluate_risk(change_request: ChangeRequest, evidence: EvidenceBundle) -> Ri
         rationale = f"Change blocked due to deterministic rule violations: {'; '.join(blocking_reasons)}."
     else:
         final_score = max(0, min(100, score))
+        if "ambiguous_semantic_mapping" in signals:
+            final_score = max(50, final_score)
+
         if final_score >= 50:
             leaning = "needs-review"
             rationale = (

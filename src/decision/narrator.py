@@ -20,6 +20,8 @@ SIGNAL_HUMAN_NAMES = {
     "incompatible_field_type": "Field type changed between source and target",
     "failing_quality_assertion": "Existing data quality assertions are currently failing",
     "no_downstream_consumers": "No downstream consumers affected",
+    "unresolvable_lineage_edge": "Unresolvable lineage edge detected in DataHub",
+    "ambiguous_semantic_mapping": "Field type transition has ambiguous semantic compatibility",
 }
 
 GLOBAL_FORBIDDEN_PHRASES = [
@@ -76,6 +78,11 @@ def _build_fallback_rationale(
         return (
             f"Change BLOCKED: Field rename '{change_request.old_field}' -> '{change_request.new_field}' "
             f"causes a metric discrepancy. {validation_report.reason}"
+        )
+    elif validation_report.result == "unavailable":
+        return (
+            f"Change NEEDS REVIEW: Field rename '{change_request.old_field}' -> '{change_request.new_field}' "
+            f"requires manual review because validation source is unavailable: {validation_report.reason}"
         )
     elif risk_assessment.leaning == "blocked":
         return f"Change BLOCKED: {risk_assessment.rationale}"
