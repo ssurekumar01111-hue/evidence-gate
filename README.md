@@ -2,9 +2,27 @@
 
 ### First workflow: Evidence Gate
 
+## In one sentence
+
+Evidence Gate turns one-time data governance decisions into graph-linked organizational memory that stays trustworthy by automatically invalidating itself when the underlying metadata changes.
+
+```
+PR / change request → Evidence Gate → Decision Provenance on DataHub → future agent asks "why?" → graph changes → stale → similar change reuses it as precedent
+```
+
 > This isn't a new audit log or a new approvals system. DataHub already knows what's connected. What it doesn't do yet is remember *why* a decision was made, or notice when that reasoning stops being true. Organizational Reasoning is the pattern; Evidence Gate is the first concrete workflow that implements it, for one high-stakes case: a risky schema/metric change.
 
 **Track:** Agents That Do Real Work (also fits Metadata-Aware Code Generation & Development)
+
+## Engineering highlights
+
+- ✅ Deterministic decision engine — rules and validation decide, never the LLM
+- ✅ Read-only, allow-listed validation query
+- ✅ Real DataHub graph throughout — no mocked lineage in the demo path
+- ✅ Decision Provenance written back to the actual asset
+- ✅ Automatic invalidation when graph state changes
+- ✅ Precedent retrieval across similar changes
+- ✅ 39 automated tests, including graceful failure-mode handling
 
 ## The problem I'm actually trying to solve
 
@@ -17,7 +35,7 @@ DataHub already has the graph — lineage, ownership, glossary terms, quality st
 Before a risky schema change, metric redefinition, or quality override ships, Evidence Gate:
 
 - **Reads** DataHub's real context graph — lineage, ownership, glossary terms, quality state — through direct GraphQL/MCP-style queries against DataHub's GMS.
-- **Decides** with deterministic rules. No unconstrained LLM call gets to approve or block anything — that's on purpose, and I think it's the right call for anything that looks like a governance gate.
+- **Decides** with deterministic rules. No unconstrained LLM call gets to approve or block anything. For governance decisions, approve/block stays deterministic by design.
 - **Writes the decision back** onto the affected DataHub asset, so it's queryable the same way anything else on that asset is.
 - **Knows when to stop trusting its own past decision** — if something the decision relied on changes later (a glossary link removed, a new failing assertion), it flags the old provenance as stale instead of letting it sit there looking authoritative forever.
 
