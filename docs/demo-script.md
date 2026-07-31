@@ -12,9 +12,8 @@
 ---
 
 ### Beat 2: Deterministic Risk Assessment (0:20 – 0:40) | Duration: 0:20
-* **Visual:** Terminal output [Step 2] showing Risk Score `75/100`, leaning `NEEDS-REVIEW`, and the 6 required approvers.
-* **Voiceover:** "Evidence Gate evaluates deterministic risk rules: because the column is linked to a core Revenue glossary term and has real downstream BI consumers across PowerBI, Looker, and Tableau, the risk score rises to 75 out of 100 with a leaning of NEEDS-REVIEW — naming six specific owners, pulled straight from DataHub, who need to sign off."
-
+* **Visual:** Terminal output [Step 2] showing Risk Score `75/100`, leaning `NEEDS-REVIEW`, the 6 required approvers, and the separate unowned-assets escalation list.
+* **Voiceover:** "Evidence Gate evaluates deterministic risk rules: because the column is linked to a core Revenue glossary term and has real downstream BI consumers across PowerBI, Looker, and Tableau, the risk score rises to 75 out of 100 — naming six specific owners, pulled straight from DataHub. It also flags something DataHub itself doesn't surface on its own: eight of those downstream assets have no owner assigned at all, so it escalates those separately instead of silently dropping them."
 ---
 
 ### Beat 3: Read-Only Metric Validation (0:40 – 1:05) | Duration: 0:25
