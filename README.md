@@ -14,7 +14,7 @@ DataHub already has the graph — lineage, ownership, glossary terms, quality st
 
 Before a risky schema change, metric redefinition, or quality override ships, Evidence Gate:
 
-- **Reads** DataHub's real context graph — lineage, ownership, glossary terms, quality state — through the MCP Server and Agent Context Kit.
+- **Reads** DataHub's real context graph — lineage, ownership, glossary terms, quality state — through direct GraphQL/MCP-style queries against DataHub's GMS.
 - **Decides** with deterministic rules. No unconstrained LLM call gets to approve or block anything — that's on purpose, and I think it's the right call for anything that looks like a governance gate.
 - **Writes the decision back** onto the affected DataHub asset, so it's queryable the same way anything else on that asset is.
 - **Knows when to stop trusting its own past decision** — if something the decision relied on changes later (a glossary link removed, a new failing assertion), it flags the old provenance as stale instead of letting it sit there looking authoritative forever.
@@ -39,16 +39,20 @@ I picked this instead of a synthetic example on purpose: `order_total` (gross tr
 flowchart LR
   A["PR-style change request"] --> B["Evidence Gate API"]
   B --> C["Agent orchestrator"]
-  C --> D["DataHub MCP Server\nDiscover live context"]
-  C --> E["Agent Context Kit\nBounded evidence bundle"]
+  C --> D["DataHub GraphQL/MCP queries\nDiscover live context"]
+  C --> E["Evidence collector\nBounded evidence bundle"]
   C --> F["DataHub Skills\nRisk, approvers, patch, receipt"]
-  C --> G["Analytics Agent\nRead-only validation"]
-  G --> H["Decision engine\nDeterministic rules + explanation"]
+  C --> G["DuckDB validation\nRead-only, deterministic query"]
+  G --> H["Decision engine\nDeterministic rules + Gemini explanation"]
   H --> I["PR comment / generated patch"]
   H --> J["DataHub write-back"]
   J --> K["Decision Provenance\nreasoning + evidence + validation"]
   K --> L["Graph-change watcher\nInvalidate or revalidate"]
 ```
+
+**On Agent Context Kit and Analytics Agent specifically:** I evaluated both directly against this project before deciding not to use them. DataHub's Agent Context Kit (`datahub-agent-context`) exposes `get_lineage`, `get_entities`, and `get_dataset_assertions` — but running these against my local DataHub quickstart, `get_lineage` reads from the search index and returned zero downstream consumers for an asset that direct GraphQL graph traversal shows has real BI dashboard consumers; the search index just wasn't caught up. `get_dataset_assertions` had the same gap. So I kept direct GraphQL queries, which read the graph store rather than the search index.
+
+I also evaluated the standalone Analytics Agent app for the validation step. It's LangGraph-based and generates SQL via an LLM — which is a good fit for open-ended "ask a question" use cases, but a bad fit here: this project's one hard rule is that validation stays deterministic and allow-listed (see below), and LLM-generated SQL is neither. I kept a plain DuckDB query instead.
 
 ## What I think is actually new here, and what isn't
 
@@ -56,41 +60,42 @@ I'm not claiming to have invented lineage, audit logs, or approval workflows —
 
 ## Repository layout
 
+```
 .
 ├── README.md
-├── LICENSE # Apache 2.0
-├── SKILL.md # Build/execution guide for the coding agent
+├── LICENSE                  # Apache 2.0
+├── SKILL.md                 # Build/execution guide for the coding agent
 ├── .devcontainer/
-│ └── devcontainer.json # Codespaces config: docker-in-docker, Python
+│   └── devcontainer.json    # Codespaces config: docker-in-docker, Python
 ├── src/
-│ ├── api/ # FastAPI orchestrator (Evidence Gate entrypoint)
-│ ├── discovery/ # DataHub MCP / ACK client calls
-│ ├── evidence/ # Evidence bundle construction
-│ ├── validation/ # Read-only revenue comparison query (DuckDB/fixture)
-│ ├── decision/ # Deterministic risk rules + LLM explanation
-│ ├── remediation/ # dbt-compatible patch + test generation
-│ ├── writeback/ # Decision Provenance write-back to DataHub
-│ ├── invalidation/ # Graph-change watcher
-│ └── precedent/ # Precedent retrieval + comparison
-├── skills/ # Standalone CLI wrappers around the same logic
-│ ├── assess_change_risk/
-│ ├── create_decision_provenance/
-│ ├── find_similar_precedents/
-│ └── invalidate_stale_provenance/
-├── oss-contribution-draft/ # Generalized skill prepared for datahub-skills
-│ └── datahub-decision-provenance/
-├── examples/ # Sample schema diff, evidence bundle, blocked
-│ │ decision, generated patch, provenance payload
-├── tests/ # Unit tests: risk scoring, validation, write-back,
-│ │ invalidation, precedent comparison
-├── fixtures/ # showcase-ecommerce datapack + revenue fixture
+│   ├── api/                 # FastAPI orchestrator (Evidence Gate entrypoint)
+│   ├── discovery/            # DataHub GraphQL/MCP-style client calls
+│   ├── evidence/              # Evidence bundle construction
+│   ├── validation/            # Read-only revenue comparison query (DuckDB/fixture)
+│   ├── decision/              # Deterministic risk rules + LLM explanation
+│   ├── remediation/           # dbt-compatible patch + test generation
+│   ├── writeback/              # Decision Provenance write-back to DataHub
+│   ├── invalidation/          # Graph-change watcher
+│   └── precedent/             # Precedent retrieval + comparison
+├── skills/                    # Standalone CLI wrappers around the same logic
+│   ├── assess_change_risk/
+│   ├── create_decision_provenance/
+│   ├── find_similar_precedents/
+│   └── invalidate_stale_provenance/
+├── oss-contribution-draft/    # Generalized skill prepared for datahub-skills
+│   └── datahub-decision-provenance/
+├── examples/                  # Sample schema diff, evidence bundle, blocked
+│   │                           decision, generated patch, provenance payload
+├── tests/                     # Unit tests: risk scoring, validation, write-back,
+│   │                           invalidation, precedent comparison
+├── fixtures/                   # showcase-ecommerce datapack + revenue fixture
 └── docs/
-├── setup.md
-├── troubleshooting.md
-├── test-report.md
-├── demo-script.md
-└── oss-contribution.md
-
+    ├── setup.md
+    ├── troubleshooting.md
+    ├── test-report.md
+    ├── demo-script.md
+    └── oss-contribution.md
+```
 
 ## Running it yourself
 
@@ -133,6 +138,16 @@ If you're on the free Codespaces tier: stop the codespace (not just close the ta
 - The model never makes the approve/block call by itself — that stays rule-based. The model explains evidence and drafts remediation, nothing more.
 - Validation only runs against fixture/sample data, read-only, and only the one pre-registered comparison query — no arbitrary query generation.
 - This covers one change type end-to-end (a revenue field rename) rather than half-covering many. I'd rather have one path that's actually solid than five that are theoretical.
+
+## Safety model
+
+Short version of how this stays safe to run against a real DataHub instance:
+
+- **Read scope**: discovery queries (lineage, glossary, ownership, quality) are read-only against DataHub's graph. Nothing here mutates an asset's structural metadata.
+- **Validation scope**: the one compatibility query is allow-listed and hardcoded — it's not an LLM generating arbitrary SQL against anything, and it only ever runs against local fixture data, never production.
+- **Write scope**: the only thing this system writes anywhere is the Decision Provenance record itself (custom properties, an institutional memory link, and an incident if blocked) — never a schema change, never a merge, never a deploy.
+- **Human-in-the-loop by design**: `approved` names required approvers; it doesn't act as their approval. A blocked change stays blocked until a human actually does something about it.
+- **LLM containment**: Gemini only ever receives already-computed facts (risk score, which rules fired, the validation delta) and turns them into readable prose or drafts a migration patch — it has no path to change the decision itself. This is enforced with an explicit hallucination check that rejects LLM output referencing signals that didn't actually fire, falling back to a template if it does.
 
 ## Examples
 
