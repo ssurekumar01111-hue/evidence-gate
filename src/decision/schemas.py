@@ -7,4 +7,5 @@ class RiskAssessment(BaseModel):
     leaning: Literal["needs-review", "approved", "blocked"]
     signals_triggered: List[str] = Field(default_factory=list)
     required_approvers: List[str] = Field(default_factory=list)
+    unowned_assets_needing_escalation: List[str] = Field(default_factory=list)
     rationale: str

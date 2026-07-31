@@ -54,13 +54,15 @@ def test_failure_handling_missing_owner():
 
     risk = evaluate_risk(req, bundle)
 
-    assert "UNASSIGNED - orphan_table has no owner in DataHub, escalate manually" in risk.required_approvers
-    assert "UNASSIGNED - Unowned BI Dashboard has no owner in DataHub, escalate manually" in risk.required_approvers
+    assert risk.required_approvers == []
+    assert "orphan_table" in risk.unowned_assets_needing_escalation
+    assert "Unowned BI Dashboard" in risk.unowned_assets_needing_escalation
 
     val_report = validate_revenue_compatibility()
     receipt = build_decision_receipt(req, bundle, risk, val_report)
-    assert "UNASSIGNED - orphan_table has no owner in DataHub, escalate manually" in receipt.required_approvers
-    assert "UNASSIGNED - Unowned BI Dashboard has no owner in DataHub, escalate manually" in receipt.required_approvers
+    assert receipt.required_approvers == []
+    assert "orphan_table" in receipt.unowned_assets_needing_escalation
+    assert "Unowned BI Dashboard" in receipt.unowned_assets_needing_escalation
 
 
 # ==============================================================================

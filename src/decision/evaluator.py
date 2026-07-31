@@ -93,6 +93,7 @@ def build_decision_receipt(
         evidence_checked=evidence_checked,
         validation=val_res,
         required_approvers=risk_assessment.required_approvers,
+        unowned_assets_needing_escalation=risk_assessment.unowned_assets_needing_escalation,
         recommended_action=recommended_action,
         revalidate_after=revalidate_after,
         invalidation_inputs=invalidation_inputs,

@@ -209,6 +209,7 @@ validation:
   result: passed | failed
   reason: <specific, numeric where possible>
 required_approvers: [<role/owner>]
+unowned_assets_needing_escalation: [<asset/consumer names>]
 recommended_action: <string>
 revalidate_after: <ISO date>
 invalidation_inputs: [<list of graph dependencies that, if changed, void this>]

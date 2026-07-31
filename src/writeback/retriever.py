@@ -69,6 +69,11 @@ def retrieve_decision_provenance(
             for a in props_map.get("eg_required_approvers", "").split(",")
             if a.strip()
         ],
+        "unowned_assets_needing_escalation": [
+            u.strip()
+            for u in props_map.get("eg_unowned_assets_needing_escalation", "").split(",")
+            if u.strip()
+        ],
         "recommended_action": props_map.get("eg_recommended_action"),
         "revalidate_after": props_map.get("eg_revalidate_after"),
         "invalidation_inputs": [

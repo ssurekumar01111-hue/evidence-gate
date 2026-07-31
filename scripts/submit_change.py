@@ -79,6 +79,11 @@ def main():
     print(f"Required Approvers:")
     for app in receipt_dict.get("required_approvers", []):
         print(f"  - {app}")
+    if receipt_dict.get("unowned_assets_needing_escalation"):
+        print("-" * 80)
+        print(f"Unowned Assets Needing Escalation:")
+        for unowned in receipt_dict.get("unowned_assets_needing_escalation", []):
+            print(f"  - {unowned}")
     print("-" * 80)
     print(f"Recommended Action:\n  {receipt_dict.get('recommended_action')}")
     print("=" * 80)

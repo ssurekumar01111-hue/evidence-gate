@@ -274,30 +274,33 @@ def test_end_to_end_milestone2_decision_path():
     assert "downstream_bi_consumer_present" in risk.signals_triggered
     assert "revenue_glossary_term_linked" in risk.signals_triggered
 
-    # Check real approver human names and unassigned entries for unowned consumers
-    expected = [
+    # Check real approver human names and unowned assets needing escalation
+    expected_approvers = [
         "Andrea Garcia",
         "David Kim",
         "Fiona Green",
         "Ian Chen",
         "Julia Novak",
         "Karen Okonkwo",
-        "UNASSIGNED - Custom SQL Query has no owner in DataHub, escalate manually",
-        "UNASSIGNED - Customer Analytics Measures has no owner in DataHub, escalate manually",
-        "UNASSIGNED - Essential KPI Measures has no owner in DataHub, escalate manually",
-        "UNASSIGNED - Geographic Measures has no owner in DataHub, escalate manually",
-        "UNASSIGNED - ORDER_DETAILS_REPLICA has no owner in DataHub, escalate manually",
-        "UNASSIGNED - Product Perfromance Measures has no owner in DataHub, escalate manually",
-        "UNASSIGNED - Time Inteligence Measures has no owner in DataHub, escalate manually",
-        "UNASSIGNED - order_history has no owner in DataHub, escalate manually",
     ]
-    assert risk.required_approvers == expected
+    expected_unowned = [
+        "Custom SQL Query",
+        "Customer Analytics Measures",
+        "Essential KPI Measures",
+        "Geographic Measures",
+        "ORDER_DETAILS_REPLICA",
+        "Product Perfromance Measures",
+        "Time Inteligence Measures",
+        "order_history",
+    ]
+    assert risk.required_approvers == expected_approvers
+    assert risk.unowned_assets_needing_escalation == expected_unowned
 
 
 def test_deterministic_approver_resolution_three_consecutive_runs():
     """
     Problem 2 Regression Test: Runs the approver resolution pipeline against the real DataHub instance
-    3 times in a row and asserts byte-identical output (exactly the same 14 approver entries in the same order) each time.
+    3 times in a row and asserts byte-identical output (exactly the same 6 human approvers and 8 unowned assets) each time.
     """
     req = parse_change_request("fixtures/net_revenue_rename.json")
     expected_approvers = [
@@ -307,18 +310,21 @@ def test_deterministic_approver_resolution_three_consecutive_runs():
         "Ian Chen",
         "Julia Novak",
         "Karen Okonkwo",
-        "UNASSIGNED - Custom SQL Query has no owner in DataHub, escalate manually",
-        "UNASSIGNED - Customer Analytics Measures has no owner in DataHub, escalate manually",
-        "UNASSIGNED - Essential KPI Measures has no owner in DataHub, escalate manually",
-        "UNASSIGNED - Geographic Measures has no owner in DataHub, escalate manually",
-        "UNASSIGNED - ORDER_DETAILS_REPLICA has no owner in DataHub, escalate manually",
-        "UNASSIGNED - Product Perfromance Measures has no owner in DataHub, escalate manually",
-        "UNASSIGNED - Time Inteligence Measures has no owner in DataHub, escalate manually",
-        "UNASSIGNED - order_history has no owner in DataHub, escalate manually",
+    ]
+    expected_unowned = [
+        "Custom SQL Query",
+        "Customer Analytics Measures",
+        "Essential KPI Measures",
+        "Geographic Measures",
+        "ORDER_DETAILS_REPLICA",
+        "Product Perfromance Measures",
+        "Time Inteligence Measures",
+        "order_history",
     ]
 
     for i in range(3):
         bundle = build_evidence_bundle(req)
         risk = evaluate_risk(req, bundle)
         assert risk.required_approvers == expected_approvers, f"Run {i+1} approvers differed: {risk.required_approvers}"
+        assert risk.unowned_assets_needing_escalation == expected_unowned, f"Run {i+1} unowned assets differed: {risk.unowned_assets_needing_escalation}"
 

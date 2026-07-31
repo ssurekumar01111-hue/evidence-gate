@@ -75,6 +75,8 @@ def main():
     print(f"Risk Leaning:   {risk.leaning.upper()}")
     print(f"Risk Signals:   {', '.join(risk.signals_triggered)}")
     print(f"Approvers:      {', '.join(risk.required_approvers)}")
+    if risk.unowned_assets_needing_escalation:
+        print(f"Unowned Assets: {', '.join(risk.unowned_assets_needing_escalation)}")
     print("-" * 80)
     print(f"Validation:     {val.result.upper()}")
     print(f"Old Aggregate:  ${val.old_aggregate:,.2f}")

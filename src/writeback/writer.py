@@ -36,6 +36,7 @@ def write_decision_provenance(
         "eg_validation_result": receipt.validation.result,
         "eg_validation_reason": receipt.validation.reason,
         "eg_required_approvers": ", ".join(receipt.required_approvers),
+        "eg_unowned_assets_needing_escalation": ", ".join(receipt.unowned_assets_needing_escalation),
         "eg_recommended_action": receipt.recommended_action,
         "eg_revalidate_after": receipt.revalidate_after,
         "eg_invalidation_inputs": ", ".join(receipt.invalidation_inputs),

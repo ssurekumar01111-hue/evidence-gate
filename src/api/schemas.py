@@ -30,6 +30,7 @@ class DecisionReceipt(BaseModel):
     evidence_checked: List[str]
     validation: ValidationResult
     required_approvers: List[str]
+    unowned_assets_needing_escalation: List[str] = Field(default_factory=list)
     recommended_action: str
     revalidate_after: str
     invalidation_inputs: List[str]

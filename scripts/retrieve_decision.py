@@ -57,6 +57,11 @@ def main():
     print(f"Required Approvers:")
     for app in report.get("required_approvers", []):
         print(f"  - {app}")
+    if report.get("unowned_assets_needing_escalation"):
+        print("-" * 80)
+        print(f"Unowned Assets Needing Escalation:")
+        for unowned in report.get("unowned_assets_needing_escalation", []):
+            print(f"  - {unowned}")
     print("-" * 80)
     print(f"Recommended Action:\n  {report.get('recommended_action')}")
     print(f"Revalidate After Expiry: {report.get('revalidate_after')}")

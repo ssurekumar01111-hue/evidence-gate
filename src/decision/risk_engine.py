@@ -68,8 +68,9 @@ def evaluate_risk(change_request: ChangeRequest, evidence: EvidenceBundle) -> Ri
         signals.append("no_downstream_consumers")
         score -= 20
 
-    # Gather required approvers from asset owners and downstream consumer owners
+    # Gather required approvers (only real, named people) and unowned assets needing escalation
     approver_names: Set[str] = set()
+    unowned_assets: Set[str] = set()
 
     # Asset owners
     asset_human_owners = set()
@@ -80,7 +81,7 @@ def evaluate_risk(change_request: ChangeRequest, evidence: EvidenceBundle) -> Ri
         approver_names.update(asset_human_owners)
     else:
         asset_label = getattr(evidence, "asset_name", None) or change_request.source_asset
-        approver_names.add(f"UNASSIGNED - {asset_label} has no owner in DataHub, escalate manually")
+        unowned_assets.add(asset_label)
 
     # Downstream consumer owners
     for c in evidence.downstream_consumers:
@@ -92,9 +93,10 @@ def evaluate_risk(change_request: ChangeRequest, evidence: EvidenceBundle) -> Ri
             approver_names.update(consumer_human_owners)
         else:
             consumer_label = c.name or c.urn
-            approver_names.add(f"UNASSIGNED - {consumer_label} has no owner in DataHub, escalate manually")
+            unowned_assets.add(consumer_label)
 
     required_approvers = sorted(list(approver_names))
+    unowned_assets_needing_escalation = sorted(list(unowned_assets))
 
     # Evaluate preliminary status leaning
     if blocking_reasons:
@@ -123,5 +125,6 @@ def evaluate_risk(change_request: ChangeRequest, evidence: EvidenceBundle) -> Ri
         leaning=leaning,
         signals_triggered=signals,
         required_approvers=required_approvers,
+        unowned_assets_needing_escalation=unowned_assets_needing_escalation,
         rationale=rationale,
     )
