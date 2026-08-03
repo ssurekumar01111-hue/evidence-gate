@@ -12,7 +12,7 @@ PR / change request → Evidence Gate → Decision Provenance on DataHub → fut
 
 > This isn't a new audit log or a new approvals system. DataHub already knows what's connected. What it doesn't do yet is remember *why* a decision was made, or notice when that reasoning stops being true. Organizational Reasoning is the pattern; Evidence Gate is the first concrete workflow that implements it, for one high-stakes case: a risky schema/metric change.
 
-**Track:** Agents That Do Real Work (also fits Metadata-Aware Code Generation & Development)
+**Track:** Metadata-Aware Code Generation & Development (also fits Agents That Do Real Work)
 
 ## Engineering highlights
 
