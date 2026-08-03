@@ -74,6 +74,26 @@ flowchart LR
 
 I also evaluated the standalone Analytics Agent app for the validation step. It's LangGraph-based and generates SQL via an LLM — which is a good fit for open-ended "ask a question" use cases, but a bad fit here: this project's one hard rule is that validation stays deterministic and allow-listed (see below), and LLM-generated SQL is neither. I kept a plain DuckDB query instead.
 
+## See it happen
+
+The single most important thing this project does — noticing when a decision it made no longer holds — isn't easy to convey in text. Here it is happening for real, against a live DataHub instance:
+
+![Decision Provenance flipping to stale when the underlying glossary term is removed](docs/screenshots/stale_flip.gif)
+
+That's not staged. The terminal output is a real, unedited run of `scripts/run_demo_timeline.py` against the actual asset in this repo's fixtures.
+
+### The decision, sitting on the actual DataHub asset
+
+Not a separate audit log — these are real custom properties on `ORDER_DETAILS` itself, readable the same way you'd read any other field on the asset:
+
+![DataHub Properties tab showing the eg_* fields: decision_id, status, risk_score, business_rationale, required_approvers](docs/screenshots/properties_tab.png)
+
+### Linked back to the source, and surfaced where a team already looks
+
+![Documentation tab showing the Decision Provenance resource link back to the PR](docs/screenshots/documentation_tab.png)
+
+![Incidents tab showing the native DataHub operational incident for the blocked change](docs/screenshots/incidents_tab.png)
+
 ## What I think is actually new here, and what isn't
 
 I'm not claiming to have invented lineage, audit logs, or approval workflows — DataHub and plenty of other tools already do those well. What I haven't seen elsewhere: tying a specific decision to the exact evidence that justified it, letting that reasoning get reused as precedent for a similar future change, and detecting when the graph state behind an old decision has drifted. Everything in the demo path runs against a real, live DataHub instance — no static JSON standing in for the graph, no mocked lineage.
