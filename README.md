@@ -2,6 +2,8 @@
 
 ### First workflow: Evidence Gate
 
+## In one sentence
+
 Evidence Gate turns one-time data governance decisions into graph-linked organizational memory that stays trustworthy by automatically invalidating itself when the underlying metadata changes.
 
 ```
@@ -71,26 +73,6 @@ flowchart LR
 **On Agent Context Kit and Analytics Agent specifically:** I evaluated both directly against this project before deciding not to use them. DataHub's Agent Context Kit (`datahub-agent-context`) exposes `get_lineage`, `get_entities`, and `get_dataset_assertions` — but running these against my local DataHub quickstart, `get_lineage` reads from the search index and returned zero downstream consumers for an asset that direct GraphQL graph traversal shows has real BI dashboard consumers; the search index just wasn't caught up. `get_dataset_assertions` had the same gap. So I kept direct GraphQL queries, which read the graph store rather than the search index.
 
 I also evaluated the standalone Analytics Agent app for the validation step. It's LangGraph-based and generates SQL via an LLM — which is a good fit for open-ended "ask a question" use cases, but a bad fit here: this project's one hard rule is that validation stays deterministic and allow-listed (see below), and LLM-generated SQL is neither. I kept a plain DuckDB query instead.
-
-## See it happen
-
-The single most important thing this project does — noticing when a decision it made no longer holds — isn't easy to convey in text. Here it is happening for real, against a live DataHub instance:
-
-![Decision Provenance flipping to stale when the underlying glossary term is removed](docs/screenshots/stale_flip.gif)
-
-That's not staged. The terminal output is a real, unedited run of `scripts/run_demo_timeline.py` against the actual asset in this repo's fixtures.
-
-### The decision, sitting on the actual DataHub asset
-
-Not a separate audit log — these are real custom properties on `ORDER_DETAILS` itself, readable the same way you'd read any other field on the asset:
-
-![DataHub Properties tab showing the eg_* fields: decision_id, status, risk_score, business_rationale, required_approvers](docs/screenshots/properties_tab.png)
-
-### Linked back to the source, and surfaced where a team already looks
-
-![Documentation tab showing the Decision Provenance resource link back to the PR](docs/screenshots/documentation_tab.png)
-
-![Incidents tab showing the native DataHub operational incident for the blocked change](docs/screenshots/incidents_tab.png)
 
 ## What I think is actually new here, and what isn't
 
@@ -193,7 +175,11 @@ Short version of how this stays safe to run against a real DataHub instance:
 
 ## Open-source contribution
 
-I pulled the write-back/precedent/staleness logic out into a generalized skill for `datahub-project/datahub-skills` — see `docs/oss-contribution.md` for status and the linked PR once it's open.
+I pulled the write-back/precedent/staleness logic out into a generalized skill for `datahub-project/datahub-skills` and opened a real pull request from my own account:
+
+https://github.com/datahub-project/datahub-skills/pull/71
+
+See `docs/oss-contribution.md` for more detail on what it covers and why.
 
 ## License
 
