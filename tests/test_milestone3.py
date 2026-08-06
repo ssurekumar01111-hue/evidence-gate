@@ -55,6 +55,42 @@ def test_deterministic_validation_runs_twice():
     assert receipt1.validation.reason == receipt2.validation.reason
 
 
+def test_decision_receipt_ids_are_unique_and_preserve_external_ids():
+    """Each evaluation gets its own ID while callers can retain a correlation ID."""
+    req = parse_change_request("fixtures/net_revenue_rename.json")
+    evidence = EvidenceBundle(asset_urn=req.source_asset, field_name=req.old_field)
+    risk = RiskAssessment(
+        risk_score=20,
+        leaning="approved",
+        signals_triggered=[],
+        required_approvers=[],
+        rationale="Low-risk test assessment.",
+    )
+    validation = RevenueValidationReport(
+        result="passed",
+        reason="Validation passed.",
+        old_aggregate=100.0,
+        proposed_aggregate=100.0,
+        delta_pct=0.0,
+        tolerance_pct=1.0,
+    )
+
+    first = build_decision_receipt(req, evidence, risk, validation)
+    second = build_decision_receipt(req, evidence, risk, validation)
+    correlated = build_decision_receipt(
+        req,
+        evidence,
+        risk,
+        validation,
+        decision_id="eg-external-correlation-123",
+    )
+
+    assert first.decision_id.startswith("eg-")
+    assert second.decision_id.startswith("eg-")
+    assert first.decision_id != second.decision_id
+    assert correlated.decision_id == "eg-external-correlation-123"
+
+
 def test_validation_failure_overrides_low_risk_score():
     """
     Locks the combination rule in place: validation failure sets risk_score to 100

@@ -1,5 +1,6 @@
 from datetime import datetime, timezone, timedelta
 from typing import Optional
+from uuid import uuid4
 from src.api.schemas import ChangeRequest, DecisionReceipt, ValidationResult
 from src.evidence.schemas import EvidenceBundle
 from src.decision.schemas import RiskAssessment
@@ -12,12 +13,16 @@ def build_decision_receipt(
     evidence: EvidenceBundle,
     risk_assessment: RiskAssessment,
     validation_report: RevenueValidationReport,
-    decision_id: str = "eg-2026-001",
+    decision_id: Optional[str] = None,
 ) -> DecisionReceipt:
     """
     Combines Milestone 2 risk assessment and Milestone 3 metric validation report
     into a complete, deterministic DecisionReceipt artifact.
     """
+    # A decision is an immutable evaluation event. Generate a distinct ID for
+    # every event unless a caller supplies an external correlation ID.
+    resolved_decision_id = decision_id or f"eg-{uuid4().hex}"
+
     now = datetime.now(timezone.utc)
     graph_snapshot_at = now.isoformat()
     revalidate_after = (now + timedelta(days=30)).isoformat()
@@ -83,7 +88,7 @@ def build_decision_receipt(
     )
 
     return DecisionReceipt(
-        decision_id=decision_id,
+        decision_id=resolved_decision_id,
         status=final_status,
         change_url=change_request.pr_url,
         business_rationale=business_rationale,

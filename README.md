@@ -2,6 +2,8 @@
 
 ### First workflow: Evidence Gate
 
+## In one sentence
+
 Evidence Gate turns one-time data governance decisions into graph-linked organizational memory that stays trustworthy by automatically invalidating itself when the underlying metadata changes.
 
 ```
@@ -10,7 +12,7 @@ PR / change request → Evidence Gate → Decision Provenance on DataHub → fut
 
 > This isn't a new audit log or a new approvals system. DataHub already knows what's connected. What it doesn't do yet is remember *why* a decision was made, or notice when that reasoning stops being true. Organizational Reasoning is the pattern; Evidence Gate is the first concrete workflow that implements it, for one high-stakes case: a risky schema/metric change.
 
-**Track:** Agents That Do Real Work (also fits Metadata-Aware Code Generation & Development)
+**Track:** Metadata-Aware Code Generation & Development (also fits Agents That Do Real Work)
 
 ## Engineering highlights
 
@@ -193,7 +195,11 @@ Short version of how this stays safe to run against a real DataHub instance:
 
 ## Open-source contribution
 
-I pulled the write-back/precedent/staleness logic out into a generalized skill for `datahub-project/datahub-skills` — see `docs/oss-contribution.md` for status and the linked PR once it's open.
+I pulled the write-back/precedent/staleness logic out into a generalized skill for `datahub-project/datahub-skills` and opened a real pull request from my own account:
+
+https://github.com/datahub-project/datahub-skills/pull/71
+
+See `docs/oss-contribution.md` for more detail on what it covers and why.
 
 ## License
 
