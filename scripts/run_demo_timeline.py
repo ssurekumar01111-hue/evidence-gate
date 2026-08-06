@@ -79,7 +79,7 @@ def run_full_demo():
     # STEP 4: Build DecisionReceipt & Generate Remediation Patch
     # ---------------------------------------------------------
     print("\n[STEP 4] COMBINING RISK + VALIDATION & GENERATING REMEDIATION PATCH...")
-    receipt1 = build_decision_receipt(req1, bundle1, risk1, val1)
+    receipt1 = build_decision_receipt(req1, bundle1, risk1, val1, decision_id="eg-2026-001")
     patch_path, test_path = generate_remediation_artifacts(req1, val1)
     print(f"  Final Status:   {receipt1.status.upper()}")
     print(f"  Final Risk:     {receipt1.risk_score}/100")

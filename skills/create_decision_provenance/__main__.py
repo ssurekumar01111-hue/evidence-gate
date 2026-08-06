@@ -36,7 +36,7 @@ def main():
     bundle = build_evidence_bundle(req)
     risk = evaluate_risk(req, bundle)
     val = validate_revenue_compatibility()
-    receipt = build_decision_receipt(req, bundle, risk, val)
+    receipt = build_decision_receipt(req, bundle, risk, val, decision_id="eg-2026-001")
 
     res = write_decision_provenance(receipt)
 

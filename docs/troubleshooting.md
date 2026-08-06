@@ -18,3 +18,23 @@ If `docker --version` or `docker ps` fails inside Codespaces:
 ### 4. `datahub datapack load showcase-ecommerce` Failure
 - Confirm `DATAHUB_GMS_URL` points to `http://localhost:8080`.
 - Verify GMS health endpoint: `curl http://localhost:8080/health`.
+
+### 5. Second Demo Run Produces Different / Missing Evidence (Glossary Term Gone)
+
+The staleness simulation in Step 7 of `scripts/run_demo_timeline.py` deliberately removes
+the `Revenue by Customer Class` glossary term from the live `ORDER_DETAILS` asset — that
+removal is exactly what triggers the stale-flip the demo is showing. The step **does not
+restore the term afterward** (restoration would undo the point).
+
+If you run the demo pipeline more than once without reloading, the second run's Step 1
+evidence bundle will already be missing that glossary term, making the staleness detection
+in Step 7 a no-op and the output misleading.
+
+**Fix: reload the showcase data before each demo run:**
+
+```bash
+python scripts/load_showcase_ecommerce.py
+```
+
+This resets the asset back to its pre-demo state (glossary term present, no provenance
+properties written) so the full pipeline produces the expected output from a clean slate.
